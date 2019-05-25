@@ -51,7 +51,7 @@
       "SettingFile": "\\..\\src\\main\\java\\PublicClient.java",
       "Mappings": [
         {
-          "key": "private final static String CLIENT_ID",
+          "key": "private final static String APP_ID",
           "value": "app.AppId"
         }
       ]

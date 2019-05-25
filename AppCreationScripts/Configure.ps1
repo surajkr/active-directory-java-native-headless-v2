@@ -175,7 +175,7 @@ Function ConfigureApplications
    # Update config file for 'app'
    $configFile = $pwd.Path + "\..\src\main\java\PublicClient.java"
    Write-Host "Updating the sample code ($configFile)"
-   $dictionary = @{ "private final static String CLIENT_ID" = $appAadApplication.AppId };
+   $dictionary = @{ "private final static String APP_ID" = $appAadApplication.AppId };
    UpdateTextFile -configFilePath $configFile -dictionary $dictionary
    Write-Host ""
    Write-Host "IMPORTANT: Think of completing the following manual step(s) in the Azure portal":

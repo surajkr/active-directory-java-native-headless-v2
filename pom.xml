@@ -4,7 +4,7 @@
     <groupId>com.microsoft.azure</groupId>
     <artifactId>public-client-msal4j-sample</artifactId>
     <packaging>jar</packaging>
-    <version>0.0.1-SNAPSHOT</version>
+    <version>0.1.0</version>
     <name>public-client-msal4j-sample</name>
 
     <dependencies>
@@ -15,16 +15,8 @@
         </dependency>
     </dependencies>
     <build>
-        <finalName>public-client-msalj-sample</finalName>
+        <finalName>public-client-msal4j-sample</finalName>
         <plugins>
-            <plugin>
-            <groupId>org.codehaus.mojo</groupId>
-            <artifactId>exec-maven-plugin</artifactId>
-            <version>1.2.1</version>
-            <configuration>
-                <mainClass>PublicClient</mainClass>
-            </configuration>
-        </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>

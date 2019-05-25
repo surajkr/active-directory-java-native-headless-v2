@@ -8,14 +8,14 @@ service: Microsoft Graph
 endpoint: AAD v2.0
 ---
 
-# Java Console application letting users sign-in with Username/password to call Microsoft Graph API
+# Java console application letting users sign-in with username/password to call Microsoft Graph API
 
 
 ## About this sample
 
 ### Overview
 
-This sample demonstrates how to use MSAL4J to:
+This sample demonstrates how to use Microsoft Authentication Library for Java to:
 
 - authenticate the user silently using username and password.
 - and call to a web API (in this case, the [Microsoft Graph](https://graph.microsoft.com))
@@ -37,9 +37,9 @@ Note that Username/Password is needed in some cases (for instance devops scenari
   - Azure AD Identity Protection can block authentication attempts if this user account is compromised.
   - The user's pasword is expired and requires a reset.
 
-While this flow seems simpler than the others, applications using these flows often encounter more problems as compared to other flows like authorization code grant. 
+While this flow seems simpler than the others, applications using these flows often encounter more problems as compared to other flows.
 
-The modern authentication protocols (SAML, WS-Fed, OAuth and OpenID), in principal, discourages apps from handling user credentials themselves. The aim is to decouple the authentication method from an app. Azure AD controls the login experience to avoid exposing secrets (like passwords) to a website or an app.
+The modern authentication protocols (SAML, WS-Fed, OAuth and OpenID), in principal, discourage apps from handling user credentials themselves. The aim is to decouple the authentication method from an app. Azure AD controls the login experience to avoid exposing secrets (like passwords) to a website or an app.
 
 This enables IdPs like Azure AD to provide seamless single sign-on experiences, enable users to authenticate using factors other than passwords (phone, face, biometrics) and Azure AD can block or elevate authentication attempts if it discerns that the user’s account is compromised or the user is trying to access an app from an untrusted location and such.
 
@@ -90,17 +90,30 @@ As a first step you'll need to:
 > In the next steps, you might need the tenant name (or directory name) or the tenant ID (or directory ID). These are presented in the **Properties**
 of the Azure Active Directory window respectively as *Name* and *Directory ID*
 
-#### Register the app app (Native-Headless-Application)
+#### Register the app app (Java-Console-Application)
 
-1. In the  **Azure Active Directory** pane, click on **App registrations** and choose **New application registration**.
-1. Enter a friendly name for the application, for example 'Native-Headless-Application' and select 'Native' as the *Application Type*.
-1. For the *Redirect URI*, enter `https://<your_tenant_name>/Native-Headless-Application`, replacing `<your_tenant_name>` with the name of your Azure AD tenant.
-1. Click **Create** to create the application.
-1. In the succeeding page, Find the *Application ID* value and copy it to the clipboard. You'll need it to configure the configuration file for this project.
-1. Then click on **Settings**, and choose **Properties**.
-1. Configure Permissions for your application. To that extent, in the Settings menu, choose the 'Required permissions' section and then,
-   click on **Add**, then **Select an API**, and type `Microsoft Graph` in the textbox. Then, click on  **Select Permissions** and select **User.Read**.
-1. Navigate back to the 'Required permissions' section, and click on **Grant Permissions**
+1. In **App registrations (Preview)** page, select **New registration**.
+1. When the **Register an application page** appears, enter your application's registration information:
+   - In the **Name** section, enter a meaningful application name that will be displayed to users of the app, for example `Java-Console-Applicaton`.
+   - In the **Supported account types** section, select **Accounts in any organizational directory**.
+    > Note that if there are more than one redirect URIs, you'd need to add them from the **Authentication** tab later after the app has been created succesfully. 
+1. Select **Register** to create the application.
+1. On the app **Overview** page, find the **Application (client) ID** value and record it for later. You'll need it to configure the APP_ID value in PublicClient.Java later.
+1. In the list of pages for the app, select **Manifest**, and:
+   - In the manifest editor, set the ``allowPublicClient`` property to **true** 
+   - Select **Save** in the bar above the manifest editor.
+1. In the list of pages for the app, select **API permissions**
+   - Click the **Add a permission** button and then,
+   - Ensure that the **Microsoft APIs** tab is selected
+   - In the *Commonly used Microsoft APIs* section, click on **Microsoft Graph**
+   - In the **Delegated permissions** section, ensure that the right permissions are checked: **User.Read**. Use the search box if necessary.
+   - Select the **Add permissions** button
+
+1. At this stage permissions are assigned correctly but the client app does not allow interaction. 
+   Therefore no consent can be presented via a UI and accepted to use the service app. 
+   Click the **Grant/revoke admin consent for {tenant}** button, and then select **Yes** when you are asked if you want to grant consent for the
+   requested permissions for all account in the tenant.
+   You need to be an Azure AD tenant admin to do this.
 
 ### Step 4:  Configure the sample to use your Azure AD tenant
 
@@ -109,7 +122,7 @@ In the steps below, ClientID is the same as Application ID or AppId.
 #### Configure the app project
 
 1. Open the `src\main\java\PublicClient.java` file
-1. Find the line `private final static String CLIENT_ID` and replace the existing value with the application ID (clientId) of the `Native-Headless-Application` application copied from the Azure portal.
+1. Find the line `private final static String APP_ID` and replace the existing value with the application ID (clientId) of the `Java-Console-Application` application copied from the Azure portal.
 
 ### Step 5: Run the sample
 
@@ -117,10 +130,61 @@ From your shell or command line:
 
 - `$ mvn package`
 
-This will generate a `public-client-adal4j-sample-jar-with-dependencies.jar` file in your /targets directory. Run this using your Java executable like below:
+This will generate a `public-client-msal4j-sample-jar-with-dependencies.jar` file in your /targets directory. Run this using your Java executable like below:
 
-- `$ java -jar public-client-adal4j-sample-jar-with-dependencies.jar`
+- `$ java -jar public-client-msal4j-sample-jar-with-dependencies.jar`
 
 ### You're done!
 
 Your command line interface should prompt you for the username and password and then access the Microsoft Graph API to retrieve your user information.
+
+### About the code
+
+The code to acquire a token is located entirely in the `src\main\java\PublicClient.Java` file. The public client application is created using the builder patter, by passing the Application Id and the Authority(https://login.microsoftonline.com/organizations/). 
+
+```
+            PublicClientApplication pca = PublicClientApplication.builder(
+                    APP_ID).
+                    authority(AUTHORITY).build();
+
+```
+
+A call to acquire the token is made using the public client application, by creating an `UserNamePasswordParameters` object. The builder takes in scope (in this case 'User.Read'), and the username and password of the user. 
+
+```
+
+            String scopes = "User.Read";
+            UserNamePasswordParameters parameters = UserNamePasswordParameters.builder(
+                    Collections.singleton(scopes),
+                    userName,
+                    password.toCharArray()).build();
+```
+
+The result is passed back to the main() function, where then the access token is extracted and passed to the function making the call to Microsoft Graph me endpoint ("https://graph.microsoft.com/v1.0/me")
+
+
+The access token is then used as a bearer token to call the Microsoft Graph API (line 68)
+
+`conn.setRequestProperty("Authorization", "Bearer " + accessToken);`
+
+## Community Help and Support
+
+Use [Stack Overflow](http://stackoverflow.com/questions/tagged/adal) to get support from the community.
+Ask your questions on Stack Overflow first and browse existing issues to see if someone has asked your question before.
+Make sure that your questions or comments are tagged with [`msal` `Java`].
+
+If you find a bug in the sample, please raise the issue on [GitHub Issues](https://github.com/Azure-Samples/active-directory-java-native-headless-v2/issues).
+
+To provide a recommendation, visit the following [User Voice page](https://feedback.azure.com/forums/169401-azure-active-directory).
+
+## Contributing
+
+If you'd like to contribute to this sample, see CONTRIBUTING.md
+
+This project has adopted the [Microsoft Open Source Code of Conduct](https://opensource.microsoft.com/codeofconduct/). For more information, see the [Code of Conduct FAQ](https://opensource.microsoft.com/codeofconduct/faq/) or contact [opencode@microsoft.com](mailto:opencode@microsoft.com) with any additional questions or comments.
+
+## More information
+
+For more information, see MSAL4J [conceptual documentation](https://github.com/AzureAD/microsoft-authentication-library-for-java/wiki). 
+
+For more information about how OAuth 2.0 protocols work in this scenario and other scenarios, see [Authentication Scenarios for Azure AD](http://go.microsoft.com/fwlink/?LinkId=394414).

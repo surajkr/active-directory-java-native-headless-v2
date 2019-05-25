@@ -37,8 +37,8 @@ import java.util.concurrent.ExecutionException;
 
 public class PublicClient {
 
-    private static final String APP_ID = "";
-    private static final String AUTHORITY = "https://login.microsoftonline.com/organizations";
+    private final static String APP_ID = "";
+    private final static String AUTHORITY = "https://login.microsoftonline.com/organizations";
 
     public static void main(String[] args) throws InterruptedException, ExecutionException, IOException {
 
