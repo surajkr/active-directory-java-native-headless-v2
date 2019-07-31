@@ -92,11 +92,10 @@ of the Azure Active Directory window respectively as *Name* and *Directory ID*
 
 #### Register the app app (Java-Console-Application)
 
-1. In **App registrations (Preview)** page, select **New registration**.
+1. In **App registrations** page, select **New registration**.
 1. When the **Register an application page** appears, enter your application's registration information:
    - In the **Name** section, enter a meaningful application name that will be displayed to users of the app, for example `Java-Console-Applicaton`.
    - In the **Supported account types** section, select **Accounts in any organizational directory**.
-    > Note that if there are more than one redirect URIs, you'd need to add them from the **Authentication** tab later after the app has been created succesfully. 
 1. Select **Register** to create the application.
 1. On the app **Overview** page, find the **Application (client) ID** value and record it for later. You'll need it to configure the APP_ID value in PublicClient.Java later.
 1. In the list of pages for the app, select **Manifest**, and:
