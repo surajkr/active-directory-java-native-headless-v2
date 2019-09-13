@@ -1,11 +1,12 @@
 ---
-services: active-directory
-author: sagonzal
-platforms: Java
-level: 200
-client: Java Console Application
-service: Microsoft Graph
-endpoint: AAD v2.0
+page_type: sample
+languages:
+- powershell
+- java
+products:
+- azure
+description: "Java console application letting users sign-in with username/password to call Microsoft Graph API"
+urlFragment: active-directory-java-native-headless-v2
 ---
 
 # Java console application letting users sign-in with username/password to call Microsoft Graph API
