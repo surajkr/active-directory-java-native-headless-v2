@@ -4,7 +4,7 @@ languages:
 - powershell
 - java
 products:
-- azure
+- azure-active-directory
 description: "Java console application letting users sign-in with username/password to call Microsoft Graph API"
 urlFragment: active-directory-java-native-headless-v2
 ---
