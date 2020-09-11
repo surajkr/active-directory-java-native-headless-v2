@@ -108,7 +108,7 @@ public class PublicClient {
             List<DriveItem> driveItems = collection.getCurrentPage();
             driveItems.forEach(driveItem -> {
                 System.out.println("Name: "+driveItem.name);
-                System.out.println("User: "+driveItem.webDavUrl);
+                System.out.println("User: "+driveItem.createdBy.user.displayName);
             });
 
 
