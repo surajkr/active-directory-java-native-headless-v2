@@ -24,6 +24,14 @@
 import com.microsoft.aad.msal4j.AuthenticationResult;
 import com.microsoft.aad.msal4j.PublicClientApplication;
 import com.microsoft.aad.msal4j.UserNamePasswordParameters;
+import com.microsoft.graph.authentication.IAuthenticationProvider;
+import com.microsoft.graph.core.DefaultClientConfig;
+import com.microsoft.graph.core.IClientConfig;
+import com.microsoft.graph.http.IHttpRequest;
+import com.microsoft.graph.models.extensions.Drive;
+import com.microsoft.graph.models.extensions.DriveItem;
+import com.microsoft.graph.models.extensions.IGraphServiceClient;
+import com.microsoft.graph.requests.extensions.*;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 
 import java.io.BufferedReader;
@@ -32,29 +40,83 @@ import java.io.InputStreamReader;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.Collections;
+import java.util.*;
 import java.util.concurrent.ExecutionException;
 
 public class PublicClient {
 
-    private final static String APP_ID = "";
-    private final static String AUTHORITY = "https://login.microsoftonline.com/organizations";
+    private final static String APP_ID = System.getProperty("CLIENT","");
+    private static final String TENANT =System.getProperty("TENANT","");//
+
+    private final static String AUTHORITY = "https://login.microsoftonline.com/" + TENANT + "/oauth2/token";
+
 
     public static void main(String[] args) throws InterruptedException, ExecutionException, IOException {
 
+        String userName=System.getProperty("USER");
+
+        String password=System.getProperty("PASSWORD");
         try (BufferedReader br = new BufferedReader(new InputStreamReader(
                 System.in))) {
-            System.out.print("Enter username: ");
-            String userName = br.readLine();
-            System.out.print("Enter password: ");
-            String password = br.readLine();
+            if (userName==null) {
+                System.out.print("Enter username: ");
+                userName = br.readLine();
+                System.out.print("Enter password: ");
+                password = br.readLine();
+            }
 
             // Request access token from AAD
             AuthenticationResult result = getAccessToken(userName, password);
 
             // Get user info from Microsoft Graph
             String userInfo = getUserInfoFromGraph(result.accessToken());
-            System.out.print(userInfo);
+            System.out.println(userInfo);
+            System.out.println("Expires on: "+result.expiresOn());
+            System.out.println("Expires on: "+result.expiresOnDate());
+            IClientConfig config=new DefaultClientConfig() {
+                @Override
+                public IAuthenticationProvider getAuthenticationProvider() {
+                    return mAuthenticationProvider;
+                }
+
+                IAuthenticationProvider mAuthenticationProvider = new IAuthenticationProvider() {
+                    @Override
+                    public void authenticateRequest(final IHttpRequest request) {
+                        request.addHeader("Authorization",
+                                "Bearer " + result.accessToken());
+                    }
+                };
+            };
+            IGraphServiceClient client=GraphServiceClient.fromConfig(config);
+
+            IDriveRequest request = client.me()
+                    .drive()
+                    .buildRequest();
+
+
+            Drive theDrive = request.get();
+            System.out.println("Drive ID is: "+theDrive.id);
+
+            IDriveItemCollectionRequest req = client.me().drive().root().children().buildRequest();
+
+
+            IDriveItemCollectionPage collection = req.get();
+
+
+
+
+            List<DriveItem> driveItems = collection.getCurrentPage();
+            driveItems.forEach(driveItem -> {
+                System.out.println("Name: "+driveItem.name);
+                System.out.println("User: "+driveItem.webDavUrl);
+            });
+
+
+
+
+
+
+
         }
     }
 
@@ -65,9 +127,11 @@ public class PublicClient {
                     APP_ID).
                     authority(AUTHORITY).build();
 
-            String scopes = "User.Read";
-            UserNamePasswordParameters parameters = UserNamePasswordParameters.builder(
-                    Collections.singleton(scopes),
+            String scope = "User.Read";
+        Set<String> scopes = new HashSet<>();
+        scopes.add(scope);scopes.add("Files.Read");
+        UserNamePasswordParameters parameters = UserNamePasswordParameters.builder(
+                scopes,
                     userName,
                     password.toCharArray()).build();
 
