@@ -20,7 +20,7 @@ public class PublicClientWithDeviceCode implements AppInfo
             uploadFilePath = args[0];
         }
 
-        AuthenticationResult result = getAccessToken();
+        IAuthenticationResult result = getAccessToken();
 
 
         IGraphServiceClient client = PublicClient.initGraphServiceClient(result);
@@ -37,8 +37,9 @@ public class PublicClientWithDeviceCode implements AppInfo
     }
 
 
-    private static AuthenticationResult getAccessToken()
-            throws MalformedURLException, InterruptedException, ExecutionException {
+    private static IAuthenticationResult getAccessToken()
+            throws MalformedURLException, InterruptedException, ExecutionException
+    {
 
         PublicClientApplication pca = PublicClientApplication.builder(
                 APP_ID).
@@ -52,7 +53,8 @@ public class PublicClientWithDeviceCode implements AppInfo
         DeviceCodeFlowParametersBuilder builder = DeviceCodeFlowParameters.builder(scopes, deviceCodeConsumer);
 
 
-        AuthenticationResult result = pca.acquireToken(builder.build()).get();
+        IAuthenticationResult result = pca.acquireToken(builder.build()).get();
+
         return result;
     }
 

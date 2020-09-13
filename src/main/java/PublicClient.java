@@ -21,7 +21,8 @@
 // OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
 // THE SOFTWARE.
 
-import com.microsoft.aad.msal4j.AuthenticationResult;
+
+import com.microsoft.aad.msal4j.IAuthenticationResult;
 import com.microsoft.aad.msal4j.PublicClientApplication;
 import com.microsoft.aad.msal4j.UserNamePasswordParameters;
 import com.microsoft.graph.authentication.IAuthenticationProvider;
@@ -32,16 +33,20 @@ import com.microsoft.graph.core.DefaultClientConfig;
 import com.microsoft.graph.core.IClientConfig;
 import com.microsoft.graph.http.IHttpRequest;
 import com.microsoft.graph.models.extensions.*;
-import com.microsoft.graph.requests.extensions.*;
+import com.microsoft.graph.requests.extensions.GraphServiceClient;
+import com.microsoft.graph.requests.extensions.IDriveItemCollectionPage;
+import com.microsoft.graph.requests.extensions.IDriveItemCollectionRequest;
+import com.microsoft.graph.requests.extensions.IDriveRequest;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 
-import java.io.*;
 import java.io.File;
+import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
-import java.util.*;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.concurrent.ExecutionException;
 
 public class PublicClient implements AppInfo
@@ -54,7 +59,7 @@ public class PublicClient implements AppInfo
             uploadFilePath = args[0];
         }
 
-        AuthenticationResult result = initAuthentication();
+        IAuthenticationResult result = initAuthentication();
 
 
         IGraphServiceClient client = initGraphServiceClient(result);
@@ -87,11 +92,11 @@ public class PublicClient implements AppInfo
 
     }
 
-    static AuthenticationResult initAuthentication() throws IOException, InterruptedException, ExecutionException {
+    static IAuthenticationResult initAuthentication() throws IOException, InterruptedException, ExecutionException {
         String userName = System.getProperty("USER");
 
         String password = System.getProperty("PASSWORD");
-        AuthenticationResult result = null;
+        IAuthenticationResult result = null;
         try (BufferedReader br = new BufferedReader(new InputStreamReader(
                 System.in))) {
             if (userName == null) {
@@ -108,11 +113,11 @@ public class PublicClient implements AppInfo
     }
 
 
-    static IGraphServiceClient initGraphServiceClient(AuthenticationResult result) throws IOException {
+    static IGraphServiceClient initGraphServiceClient(IAuthenticationResult result) throws IOException {
         // Get user info from Microsoft Graph
         String userInfo = getUserInfoFromGraph(result.accessToken());
         System.out.println(userInfo);
-        System.out.println("Expires on: " + result.expiresOn());
+
         System.out.println("Expires on: " + result.expiresOnDate());
         IClientConfig config = new DefaultClientConfig() {
             @Override
@@ -184,7 +189,8 @@ public class PublicClient implements AppInfo
 
     }
 
-    private static AuthenticationResult getAccessToken(String userName, String password)
+
+    private static IAuthenticationResult getAccessToken(String userName, String password)
             throws MalformedURLException, InterruptedException, ExecutionException {
 
         PublicClientApplication pca = PublicClientApplication.builder(
@@ -200,7 +206,7 @@ public class PublicClient implements AppInfo
                 userName,
                 password.toCharArray()).build();
 
-        AuthenticationResult result = pca.acquireToken(parameters).get();
+        IAuthenticationResult result = pca.acquireToken(parameters).get();
         return result;
     }
 
