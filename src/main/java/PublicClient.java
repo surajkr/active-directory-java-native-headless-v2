@@ -25,40 +25,76 @@ import com.microsoft.aad.msal4j.AuthenticationResult;
 import com.microsoft.aad.msal4j.PublicClientApplication;
 import com.microsoft.aad.msal4j.UserNamePasswordParameters;
 import com.microsoft.graph.authentication.IAuthenticationProvider;
+import com.microsoft.graph.concurrency.ChunkedUploadProvider;
+import com.microsoft.graph.concurrency.IProgressCallback;
+import com.microsoft.graph.core.ClientException;
 import com.microsoft.graph.core.DefaultClientConfig;
 import com.microsoft.graph.core.IClientConfig;
 import com.microsoft.graph.http.IHttpRequest;
-import com.microsoft.graph.models.extensions.Drive;
-import com.microsoft.graph.models.extensions.DriveItem;
-import com.microsoft.graph.models.extensions.IGraphServiceClient;
+import com.microsoft.graph.models.extensions.*;
 import com.microsoft.graph.requests.extensions.*;
 import com.nimbusds.oauth2.sdk.http.HTTPResponse;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
+import java.io.*;
+import java.io.File;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.*;
+import java.util.List;
 import java.util.concurrent.ExecutionException;
 
-public class PublicClient {
-
-    private final static String APP_ID = System.getProperty("CLIENT","");
-    private static final String TENANT =System.getProperty("TENANT","");//
-
-    private final static String AUTHORITY = "https://login.microsoftonline.com/" + TENANT + "/oauth2/token";
+public class PublicClient implements AppInfo
+{
 
 
     public static void main(String[] args) throws InterruptedException, ExecutionException, IOException {
+        String uploadFilePath = null;
+        if (args.length > 0) {
+            uploadFilePath = args[0];
+        }
 
-        String userName=System.getProperty("USER");
+        AuthenticationResult result = initAuthentication();
 
-        String password=System.getProperty("PASSWORD");
+
+        IGraphServiceClient client = initGraphServiceClient(result);
+
+        IDriveRequest request = client.me()
+                .drive()
+                .buildRequest();
+
+
+        Drive theDrive = request.get();
+        System.out.println("Drive ID is: " + theDrive.id);
+
+        IDriveItemCollectionRequest req = client.me().drive().root().children().buildRequest();
+
+
+        IDriveItemCollectionPage collection = req.get();
+
+
+        List<DriveItem> driveItems = collection.getCurrentPage();
+        driveItems.forEach(driveItem -> {
+            System.out.println("Name: " + driveItem.name);
+            System.out.println("User: " + driveItem.createdBy.user.displayName);
+        });
+
+
+        createFolder(client, "name." + System.currentTimeMillis());
+        if (uploadFilePath != null) {
+            uploadFile(client, uploadFilePath);
+        }
+
+    }
+
+    static AuthenticationResult initAuthentication() throws IOException, InterruptedException, ExecutionException {
+        String userName = System.getProperty("USER");
+
+        String password = System.getProperty("PASSWORD");
+        AuthenticationResult result = null;
         try (BufferedReader br = new BufferedReader(new InputStreamReader(
                 System.in))) {
-            if (userName==null) {
+            if (userName == null) {
                 System.out.print("Enter username: ");
                 userName = br.readLine();
                 System.out.print("Enter password: ");
@@ -66,97 +102,126 @@ public class PublicClient {
             }
 
             // Request access token from AAD
-            AuthenticationResult result = getAccessToken(userName, password);
+            result = getAccessToken(userName, password);
+        }
+        return result;
+    }
 
-            // Get user info from Microsoft Graph
-            String userInfo = getUserInfoFromGraph(result.accessToken());
-            System.out.println(userInfo);
-            System.out.println("Expires on: "+result.expiresOn());
-            System.out.println("Expires on: "+result.expiresOnDate());
-            IClientConfig config=new DefaultClientConfig() {
+
+    static IGraphServiceClient initGraphServiceClient(AuthenticationResult result) throws IOException {
+        // Get user info from Microsoft Graph
+        String userInfo = getUserInfoFromGraph(result.accessToken());
+        System.out.println(userInfo);
+        System.out.println("Expires on: " + result.expiresOn());
+        System.out.println("Expires on: " + result.expiresOnDate());
+        IClientConfig config = new DefaultClientConfig() {
+            @Override
+            public IAuthenticationProvider getAuthenticationProvider() {
+                return mAuthenticationProvider;
+            }
+
+            IAuthenticationProvider mAuthenticationProvider = new IAuthenticationProvider() {
                 @Override
-                public IAuthenticationProvider getAuthenticationProvider() {
-                    return mAuthenticationProvider;
+                public void authenticateRequest(final IHttpRequest request) {
+                    request.addHeader("Authorization",
+                            "Bearer " + result.accessToken());
                 }
-
-                IAuthenticationProvider mAuthenticationProvider = new IAuthenticationProvider() {
-                    @Override
-                    public void authenticateRequest(final IHttpRequest request) {
-                        request.addHeader("Authorization",
-                                "Bearer " + result.accessToken());
-                    }
-                };
             };
-            IGraphServiceClient client=GraphServiceClient.fromConfig(config);
+        };
+        return GraphServiceClient.fromConfig(config);
+    }
 
-            IDriveRequest request = client.me()
-                    .drive()
-                    .buildRequest();
+    private static void createFolder(IGraphServiceClient client, String folderName) {
 
+        DriveItem driveItem = new DriveItem();
+        driveItem.name = folderName;
+        driveItem.folder = new Folder();
+        client.me().drive().root().children().buildRequest().post(driveItem);
 
-            Drive theDrive = request.get();
-            System.out.println("Drive ID is: "+theDrive.id);
+    }
 
-            IDriveItemCollectionRequest req = client.me().drive().root().children().buildRequest();
+    public static void uploadFile(IGraphServiceClient client, String sourceFile) throws IOException {
+        File source = new File(sourceFile);
+        String itemPath = "/NewDutFolder/" + source.getName();
 
+        UploadSession uploadSession = client
+                .me()
+                .drive()
+                .root()
+                // itemPath like "/Folder/file.txt"
+                // does not need to be a path to an existing item
+                .itemWithPath(itemPath)
+                .createUploadSession(new DriveItemUploadableProperties())
+                .buildRequest()
+                .post();
 
-            IDriveItemCollectionPage collection = req.get();
+        ChunkedUploadProvider<DriveItem> chunkedUploadProvider =
+                new ChunkedUploadProvider<DriveItem>
+                        (uploadSession, client, new BufferedInputStream(new FileInputStream(source)),
+                                source.length(), DriveItem.class);
 
+// Config parameter is an array of integers
+// customConfig[0] indicates the max slice size
+// Max slice size must be a multiple of 320 KiB
+        int[] customConfig = {320 * 1024};
 
+// Do the upload
+        final DriveItemIProgressCallback callback = new DriveItemIProgressCallback();
+        chunkedUploadProvider.upload(callback, customConfig);
+        synchronized (callback) {
+            try {
+                while (callback.uploaded == null) {
+                    callback.wait(1000L);
 
+                }
+                System.out.println("PublicClient.uploadFile:Completed " + callback.uploaded.name);
 
-            List<DriveItem> driveItems = collection.getCurrentPage();
-            driveItems.forEach(driveItem -> {
-                System.out.println("Name: "+driveItem.name);
-                System.out.println("User: "+driveItem.createdBy.user.displayName);
-            });
-
-
-
-
-
-
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
 
         }
+
     }
 
     private static AuthenticationResult getAccessToken(String userName, String password)
             throws MalformedURLException, InterruptedException, ExecutionException {
 
-            PublicClientApplication pca = PublicClientApplication.builder(
-                    APP_ID).
-                    authority(AUTHORITY).build();
+        PublicClientApplication pca = PublicClientApplication.builder(
+                AppInfo.APP_ID).
+                authority(AppInfo.AUTHORITY).build();
 
-            String scope = "User.Read";
+        String scope = "User.Read";
         Set<String> scopes = new HashSet<>();
-        scopes.add(scope);scopes.add("Files.Read");
+        scopes.add(scope);
+        scopes.add("Files.Read");
         UserNamePasswordParameters parameters = UserNamePasswordParameters.builder(
                 scopes,
-                    userName,
-                    password.toCharArray()).build();
+                userName,
+                password.toCharArray()).build();
 
-            AuthenticationResult result = pca.acquireToken(parameters).get();
-            return result;
-        }
+        AuthenticationResult result = pca.acquireToken(parameters).get();
+        return result;
+    }
 
-    private static String getUserInfoFromGraph(String accessToken) throws IOException{
+    private static String getUserInfoFromGraph(String accessToken) throws IOException {
         URL url = new URL("https://graph.microsoft.com/v1.0/me");
         HttpURLConnection conn = (HttpURLConnection) url.openConnection();
 
         conn.setRequestMethod("GET");
         conn.setRequestProperty("Authorization", "Bearer " + accessToken);
-        conn.setRequestProperty("Accept","application/json");
+        conn.setRequestProperty("Accept", "application/json");
 
         int httpResponseCode = conn.getResponseCode();
-        if(httpResponseCode == HTTPResponse.SC_OK) {
+        if (httpResponseCode == HTTPResponse.SC_OK) {
 
             StringBuilder response;
-            try(BufferedReader in = new BufferedReader(
-                    new InputStreamReader(conn.getInputStream()))){
+            try (BufferedReader in = new BufferedReader(
+                    new InputStreamReader(conn.getInputStream()))) {
 
                 String inputLine;
                 response = new StringBuilder();
-                while (( inputLine = in.readLine()) != null) {
+                while ((inputLine = in.readLine()) != null) {
                     response.append(inputLine);
                 }
             }
@@ -166,4 +231,30 @@ public class PublicClient {
                     httpResponseCode, conn.getResponseMessage());
         }
     }
+
+
+    private static class DriveItemIProgressCallback implements IProgressCallback<DriveItem> {
+        private DriveItem uploaded;
+
+        @Override
+        public void progress(long l, long l1) {
+            System.out.println("ProgressCallback.progress: " + l + " of :  " + l1);
+
+        }
+
+        @Override
+        public void success(DriveItem driveItem) {
+            synchronized (this) {
+                this.uploaded = driveItem;
+                this.notifyAll();
+            }
+
+        }
+
+        @Override
+        public void failure(ClientException e) {
+
+        }
+    }
 }
+
