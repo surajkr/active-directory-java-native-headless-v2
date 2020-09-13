@@ -41,9 +41,19 @@ public class PublicClientWithDeviceCode implements AppInfo
             throws MalformedURLException, InterruptedException, ExecutionException
     {
 
-        PublicClientApplication pca = PublicClientApplication.builder(
+        boolean useTokenCache=Boolean.getBoolean("TOKEN_CACHE");
+
+        PublicClientApplication.Builder builder1 = PublicClientApplication.builder(
                 APP_ID).
-                authority(AUTHORITY).build();
+                authority(AUTHORITY);
+        TokenCache.TokenPersistence val=null;
+        String cacheStore = "deviceCode.token.cache.json";
+        if(useTokenCache)
+        {
+            val= TokenCache.initCache(builder1, cacheStore);
+
+        }
+        PublicClientApplication pca = builder1.build();
 
         String scope = "User.Read";
         Set<String> scopes = new HashSet<>();
@@ -54,6 +64,10 @@ public class PublicClientWithDeviceCode implements AppInfo
 
 
         IAuthenticationResult result = pca.acquireToken(builder.build()).get();
+        if(useTokenCache)
+        {
+            TokenCache.writeResource(val.data, cacheStore);
+        }
 
         return result;
     }

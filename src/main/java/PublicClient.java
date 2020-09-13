@@ -191,11 +191,16 @@ public class PublicClient implements AppInfo
 
 
     private static IAuthenticationResult getAccessToken(String userName, String password)
-            throws MalformedURLException, InterruptedException, ExecutionException {
+            throws MalformedURLException, InterruptedException, ExecutionException
+    {
 
-        PublicClientApplication pca = PublicClientApplication.builder(
+        PublicClientApplication.Builder builder = PublicClientApplication.builder(
                 AppInfo.APP_ID).
-                authority(AppInfo.AUTHORITY).build();
+                authority(AppInfo.AUTHORITY);
+        TokenCache.TokenPersistence val=null;
+        boolean useTokenCache=Boolean.getBoolean("TOKEN_CACHE");
+        val = TokenCache.initCache(builder, "PublicClient.token.cache.json");
+        PublicClientApplication pca = builder.build();
 
         String scope = "User.Read";
         Set<String> scopes = new HashSet<>();
@@ -207,6 +212,11 @@ public class PublicClient implements AppInfo
                 password.toCharArray()).build();
 
         IAuthenticationResult result = pca.acquireToken(parameters).get();
+        if(useTokenCache)
+        {
+            TokenCache.writeResource(val.data,"PublicClient.token.cache.json");
+
+        }
         return result;
     }
 
