@@ -63,7 +63,13 @@ public class PublicClientWithDeviceCode implements AppInfo
         DeviceCodeFlowParametersBuilder builder = DeviceCodeFlowParameters.builder(scopes, deviceCodeConsumer);
 
 
-        IAuthenticationResult result = pca.acquireToken(builder.build()).get();
+        IAuthenticationResult result;
+        try {
+            result=pca.acquireTokenSilently(SilentParameters.builder(scopes).build()).get();
+        } catch (InterruptedException | ExecutionException | MalformedURLException e) {
+            e.printStackTrace();
+            result = pca.acquireToken(builder.build()).get();
+        }
         if(useTokenCache)
         {
             TokenCache.writeResource(val.data, cacheStore);

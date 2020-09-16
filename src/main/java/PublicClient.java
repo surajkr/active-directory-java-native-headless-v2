@@ -22,9 +22,8 @@
 // THE SOFTWARE.
 
 
-import com.microsoft.aad.msal4j.IAuthenticationResult;
+import com.microsoft.aad.msal4j.*;
 import com.microsoft.aad.msal4j.PublicClientApplication;
-import com.microsoft.aad.msal4j.UserNamePasswordParameters;
 import com.microsoft.graph.authentication.IAuthenticationProvider;
 import com.microsoft.graph.concurrency.ChunkedUploadProvider;
 import com.microsoft.graph.concurrency.IProgressCallback;
@@ -44,6 +43,7 @@ import java.io.*;
 import java.net.HttpURLConnection;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -98,19 +98,32 @@ public class PublicClient implements AppInfo
         String password = System.getProperty("PASSWORD");
         IAuthenticationResult result = null;
         try (BufferedReader br = new BufferedReader(new InputStreamReader(
-                System.in))) {
-            if (userName == null) {
-                System.out.print("Enter username: ");
-                userName = br.readLine();
-                System.out.print("Enter password: ");
-                password = br.readLine();
-            }
+                System.in)))
+        {
+            String clientSecret = System.getProperty("client.secret");
+            if (clientSecret !=null)
+            {
+                result=getAccessToken(clientSecret);
 
-            // Request access token from AAD
-            result = getAccessToken(userName, password);
+
+            }
+             else
+            {
+                if (userName == null) {
+                    System.out.print("Enter username: ");
+                    userName = br.readLine();
+                    System.out.print("Enter password: ");
+                    password = br.readLine();
+                }
+
+                // Request access token from AAD
+                result = getAccessToken(userName, password);
+            }
         }
         return result;
     }
+
+
 
 
     static IGraphServiceClient initGraphServiceClient(IAuthenticationResult result) throws IOException {
@@ -189,6 +202,16 @@ public class PublicClient implements AppInfo
 
     }
 
+    private static IAuthenticationResult getAccessToken(String clientSecret) throws MalformedURLException, ExecutionException, InterruptedException {
+        IClientCredential credentials=ClientCredentialFactory.createFromSecret(clientSecret) ;
+        ConfidentialClientApplication.Builder builder=ConfidentialClientApplication.builder(AppInfo.APP_ID,credentials)
+                .authority(AppInfo.AUTHORITY);
+        ConfidentialClientApplication app = builder.build();
+        Set<String> scope = Collections.singleton("https://graph.microsoft.com/.default");
+        ClientCredentialParameters params=ClientCredentialParameters.builder(scope).build();
+        return app.acquireToken(params).get();
+
+    }
 
     private static IAuthenticationResult getAccessToken(String userName, String password)
             throws MalformedURLException, InterruptedException, ExecutionException
@@ -218,6 +241,14 @@ public class PublicClient implements AppInfo
 
         }
         return result;
+    }
+
+    private static Set<String> getScopes() {
+        String scope = "User.Read";
+        Set<String> scopes = new HashSet<>();
+        scopes.add(scope);
+        scopes.add("Files.Read");
+        return scopes;
     }
 
     private static String getUserInfoFromGraph(String accessToken) throws IOException {
